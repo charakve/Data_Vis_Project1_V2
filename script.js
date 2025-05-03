@@ -108,6 +108,7 @@ document.addEventListener("DOMContentLoaded", function () {
       drawScat();
       drawMap();
       drawLegend();
+      updateStats();
     })
     .catch((error) => console.error("Error loading data:", error));
 
@@ -128,6 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (currentBrushSelection) {
       handleBrushEnd({ selection: currentBrushSelection });
     }
+    updateStats();
   });
 
   d3.select("#y-axis-select").on("change", function () {
@@ -141,6 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (currentBrushSelection) {
       handleBrushEnd({ selection: currentBrushSelection });
     }
+    updateStats();
   });
 
   d3.select("#choropleth-select").on("change", function () {
@@ -281,6 +284,7 @@ document.addEventListener("DOMContentLoaded", function () {
     drawHist();
     drawMap();
     drawLegend();
+    updateStats();
   }
 
   function applyBrushStyle() {
@@ -660,5 +664,48 @@ document.addEventListener("DOMContentLoaded", function () {
       .style("font-size", "11px")
       .style("font-weight", "bold")
       .text(getLabel(mapAttr));
+  }
+
+  // Update stat counters
+  function updateStats() {
+    // Count of counties visible
+    const totalCounties = fullData.length;
+    d3.select("#counties-visible").text(totalCounties);
+
+    // Count of counties selected (if brush active)
+    const selectedCount = currentBrushSelection ? selectedData.length : 0;
+    d3.select("#counties-selected").text(selectedCount);
+
+    // Calculate correlation between X and Y in scatterplot
+    if (xAttr && yAttr) {
+      const corrData = fullData.filter(
+        (d) =>
+          !isNaN(d[xAttr]) &&
+          !isNaN(d[yAttr]) &&
+          d[xAttr] !== null &&
+          d[yAttr] !== null
+      );
+
+      if (corrData.length > 1) {
+        const xValues = corrData.map((d) => d[xAttr]);
+        const yValues = corrData.map((d) => d[yAttr]);
+
+        // Calculate correlation coefficient
+        const n = corrData.length;
+        const sumX = xValues.reduce((a, b) => a + b, 0);
+        const sumY = yValues.reduce((a, b) => a + b, 0);
+        const sumXY = xValues.reduce((a, b, i) => a + b * yValues[i], 0);
+        const sumX2 = xValues.reduce((a, b) => a + b * b, 0);
+        const sumY2 = yValues.reduce((a, b) => a + b * b, 0);
+
+        const correlation =
+          (n * sumXY - sumX * sumY) /
+          Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+
+        d3.select("#correlation-value").text(correlation.toFixed(2));
+      } else {
+        d3.select("#correlation-value").text("N/A");
+      }
+    }
   }
 });
