@@ -1,5 +1,6 @@
-# [US County Data Visualization](https://data-vis-project-1-jet.vercel.app/)
+# [US County Data Visualization](https://data-vis-project1-v2.vercel.app/)
 
+[Project Link Version 2](https://data-vis-project1-v2.vercel.app/)
 [Project Link](https://data-vis-project-1-jet.vercel.app/)
 
 ![Home Page](img/Homepage.png)
