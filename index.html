@@ -20,7 +20,22 @@
       </div>
     </header>
 
-   
+    <div id="controls-wrapper">
+      <div id="visibility-controls" class="controls content-section">
+        <label>Visualizations:</label>
+        <label class="control-checkbox">
+          <input type="checkbox" id="show-histogram" checked />
+          <span><i class="fas fa-chart-bar"></i> Histogram</span>
+        </label>
+        <label class="control-checkbox">
+          <input type="checkbox" id="show-scatterplot" checked />
+          <span><i class="fas fa-chart-scatter"></i> Scatterplot</span>
+        </label>
+        <label class="control-checkbox">
+          <input type="checkbox" id="show-choropleth" checked />
+          <span><i class="fas fa-map"></i> Map</span>
+        </label>
+      </div>
 
       <div id="controls">
         <div class="control-panel" id="histogram-controls">
@@ -173,7 +188,33 @@
         </div>
       </div>
 
-      
+      <div id="insights">
+        <div class="section-icon"><i class="fas fa-lightbulb"></i></div>
+        <h2>Insights & Patterns</h2>
+        <p>
+          The dashboard reveals several key patterns in US county health and
+          socioeconomic data:
+        </p>
+        <ul>
+          <li>
+            <strong>Income & Health Insurance:</strong> Counties with lower
+            median incomes tend to have higher percentages of uninsured
+            residents.
+          </li>
+          <li>
+            <strong>Stroke & Poverty:</strong> There's a visible correlation
+            between stroke prevalence and poverty rates in many regions.
+          </li>
+          <li>
+            <strong>Regional Patterns:</strong> The map reveals geographic
+            clusters that share similar health and economic characteristics.
+          </li>
+        </ul>
+        <p>
+          Try selecting different variable combinations and using the brush tool
+          to explore these relationships further.
+        </p>
+      </div>
     </div>
 
     <footer>

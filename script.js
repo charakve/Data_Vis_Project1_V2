@@ -1,597 +1,664 @@
-// Content from script_brush.js
-// Set up margins and dimensions
-const margin_brush = { top: 20, right: 30, bottom: 40, left: 50 }; // Renamed to avoid conflict
-const width_brush = 800 - margin_brush.left - margin_brush.right; // Renamed
-const height_brush = 400 - margin_brush.top - margin_brush.bottom; // Renamed
+// Combined visualization script with enhanced features
+document.addEventListener("DOMContentLoaded", function () {
+  // ─── SETUP DIMENSIONS & MARGIN ───────────────────────────────────────
+  const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+  const histW = 300 - margin.left - margin.right;
+  const histH = 240 - margin.top - margin.bottom;
+  const scatW = 300 - margin.left - margin.right;
+  const scatH = 240 - margin.top - margin.bottom;
+  const mapW = 620 - margin.left - margin.right;
+  const mapH = 260 - margin.top - margin.bottom;
 
-// Append SVG elements to the DOM
-const svgHistogram_brush = d3
-  .select("#histogram") // Renamed
-  .append("svg")
-  .attr("width", width_brush + margin_brush.left + margin_brush.right)
-  .attr("height", height_brush + margin_brush.top + margin_brush.bottom)
-  .append("g")
-  .attr("transform", `translate(${margin_brush.left},${margin_brush.top})`);
+  // Color theme - using a consistent palette
+  const colorTheme = {
+    primary: "#4e79a7", // Blue for primary elements
+    secondary: "#f28e2c", // Orange for secondary/highlight
+    tertiary: "#e15759", // Red for tertiary elements
+    background: "#f9f9f9", // Light background
+    lightShade: "#eaeaea", // Light shade
+    darkShade: "#76b7b2", // Dark shade
+    highlight: "#59a14f", // Green highlight
+    sequential: d3.interpolateBlues, // Sequential color scale
+  };
 
-const svgScatter_brush = d3
-  .select("#scatterplot") // Renamed
-  .append("svg")
-  .attr("width", width_brush + margin_brush.left + margin_brush.right)
-  .attr("height", height_brush + margin_brush.top + margin_brush.bottom)
-  .append("g")
-  .attr("transform", `translate(${margin_brush.left},${margin_brush.top})`);
+  // ─── CREATE SVGs WITH viewBox FOR RESPONSIVENESS ──────────────────────
+  function createSVG(sel, w, h) {
+    const container = d3.select(sel);
+    container.selectAll("svg").remove();
+    return container
+      .append("svg")
+      .attr(
+        "viewBox",
+        `0 0 ${w + margin.left + margin.right} ${
+          h + margin.top + margin.bottom
+        }`
+      )
+      .attr("preserveAspectRatio", "xMidYMid meet")
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+  }
 
-const svgChoropleth_brush = d3
-  .select("#choropleth") // Renamed
-  .append("svg")
-  .attr("width", width_brush + margin_brush.left + margin_brush.right)
-  .attr("height", height_brush + margin_brush.top + margin_brush.bottom)
-  .append("g")
-  .attr("transform", `translate(${margin_brush.left},${margin_brush.top})`);
+  const svgHist = createSVG("#histogram", histW, histH);
+  const svgScat = createSVG("#scatterplot", scatW, scatH);
+  const svgMap = createSVG("#choropleth", mapW, mapH);
 
-// Tooltip for interactivity
-const tooltip_brush = d3
-  .select("body")
-  .append("div") // Renamed
-  .attr("class", "tooltip")
-  .style("opacity", 0);
+  const svgLegend = d3
+    .select("#choropleth-legend")
+    .append("svg")
+    .attr("width", 300)
+    .attr("height", 40);
 
-// Global variables from script_brush.js
-let data_brush; // Renamed
-let counties_brush; // Renamed
-let colorScale_brush; // Renamed
-let xAttribute_brush = document.getElementById("x-axis-select").value; // Renamed
-let yAttribute_brush = document.getElementById("y-axis-select").value; // Renamed
-let choroplethAttribute_brush = "poverty_perc"; // Renamed, Default choropleth attribute
-let histogramAttribute_brush = "poverty_perc"; // Renamed, Default histogram attribute
-let selectedData_brush = []; // Renamed, Stores brushed data
+  // ─── TOOLTIP ──────────────────────────────────────────────────────────
+  const tooltip = d3
+    .select("body")
+    .append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
 
-// Load the data (from script_brush.js)
-d3.csv("data.csv").then(function (csvData_brush) {
-  // Renamed csvData
-  // Convert strings to numbers
-  data_brush = csvData_brush.map((d) => {
-    // Renamed data
-    d.poverty_perc = +d.poverty_perc;
-    d.percent_stroke = +d.percent_stroke;
-    d.median_household_income = +d.median_household_income;
-    d.percent_no_health_insurance = +d.percent_no_health_insurance || 0; // Replace NaN with 0
-    return d;
-  });
+  // ─── GLOBAL STATE ─────────────────────────────────────────────────────
+  let fullData = [],
+    counties = [];
+  let selectedData = [];
+  let currentBrushSelection = null;
+  let colorScale;
 
-  // Debug: Log the first few rows to verify the data
-  console.log("Data from script_brush.js:", data_brush.slice(0, 5)); // Added identifier
+  let scatterXScale = d3.scaleLinear();
+  let scatterYScale = d3.scaleLinear();
 
-  // Create initial histogram (using brush version)
-  createHistogram_brush(
-    svgHistogram_brush,
-    data_brush,
-    histogramAttribute_brush,
-    "Poverty Percentage (%)",
-    d3.interpolateBlues
-  ); // Renamed function and vars
+  // Get initial attribute selections from the DOM
+  let histAttr = d3.select("#histogram-select").property("value");
+  let xAttr = d3.select("#x-axis-select").property("value");
+  let yAttr = d3.select("#y-axis-select").property("value");
+  let mapAttr = d3.select("#choropleth-select").property("value");
 
-  // Create scatterplot (using brush version)
-  createScatterplot_brush(svgScatter_brush, data_brush); // Renamed function and vars
+  // ─── LOAD & INITIALIZE ────────────────────────────────────────────
+  Promise.all([
+    d3.csv("data.csv", (d) => ({
+      poverty_perc: +d.poverty_perc >= 0 ? +d.poverty_perc : 0,
+      percent_stroke: +d.percent_stroke >= 0 ? +d.percent_stroke : 0,
+      median_household_income:
+        +d.median_household_income >= 0 ? +d.median_household_income : 0,
+      percent_no_health_insurance:
+        +d.percent_no_health_insurance >= 0
+          ? +d.percent_no_health_insurance
+          : 0,
+      display_name: d.display_name,
+      cnty_fips: d.cnty_fips,
+    })),
+    d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json"),
+  ])
+    .then(([rows, us]) => {
+      // Filter out entries without valid FIPS codes
+      fullData = rows.filter((d) => d.cnty_fips);
+      selectedData = [...fullData];
 
-  // Load US counties TopoJSON (using brush version)
-  d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json").then(
-    function (us_brush) {
-      // Renamed us
-      counties_brush = topojson.feature(
-        us_brush,
-        us_brush.objects.counties
-      ).features; // Renamed counties
-
-      // Initialize color scale (using brush version)
-      updateColorScale_brush(); // Renamed function
-
-      // Draw the initial choropleth map (using brush version)
-      drawChoropleth_brush(); // Renamed function
-    }
-  );
-});
-
-// Function to update the color scale based on the selected attribute (from script_brush.js)
-function updateColorScale_brush() {
-  // Renamed function
-  const maxValue_brush = d3.max(
-    data_brush,
-    (d) => d[choroplethAttribute_brush]
-  ); // Renamed vars
-  colorScale_brush = d3
-    .scaleSequential(d3.interpolatePurples) // Renamed colorScale
-    .domain([0, maxValue_brush]); // Renamed maxValue
-}
-
-// Function to draw the choropleth map (from script_brush.js)
-function drawChoropleth_brush() {
-  // Renamed function
-  // Clear previous map
-  svgChoropleth_brush.selectAll("path").remove(); // Renamed svgChoropleth
-
-  // Set projection (Albers USA for US maps)
-  const projection_brush = d3
-    .geoAlbersUsa() // Renamed projection
-    .translate([width_brush / 2, height_brush / 2]) // Renamed width, height
-    .scale(width_brush); // Renamed width
-
-  // Create path generator
-  const path_brush = d3.geoPath().projection(projection_brush); // Renamed path, projection
-
-  // Draw counties
-  svgChoropleth_brush
-    .selectAll("path") // Renamed svgChoropleth
-    .data(counties_brush) // Renamed counties
-    .enter()
-    .append("path")
-    .attr("d", path_brush) // Renamed path
-    .attr("fill", (d) => {
-      const county_brush = (
-        selectedData_brush.length > 0 ? selectedData_brush : data_brush
-      ).find((county) => county.cnty_fips === d.id); // Renamed vars
-      return county_brush
-        ? colorScale_brush(county_brush[choroplethAttribute_brush])
-        : "#ccc"; // Renamed vars
-    })
-    .on("mouseover", function (event, d) {
-      const county_brush = (
-        selectedData_brush.length > 0 ? selectedData_brush : data_brush
-      ).find((county) => county.cnty_fips === d.id); // Renamed vars
-      if (county_brush) {
-        // Renamed county
-        tooltip_brush
-          .transition() // Renamed tooltip
-          .duration(200)
-          .style("opacity", 0.9);
-        tooltip_brush
-          .html(
-            `County: ${county_brush.display_name}<br>${
-              choroplethAttribute_brush === "poverty_perc"
-                ? "Poverty"
-                : choroplethAttribute_brush === "percent_stroke"
-                ? "Stroke"
-                : choroplethAttribute_brush === "median_household_income"
-                ? "Median Income"
-                : "No Health Insurance"
-            }: ${county_brush[choroplethAttribute_brush]}${
-              choroplethAttribute_brush === "median_household_income"
-                ? "$"
-                : "%"
-            }`
-          ) // Renamed vars
-          .style("left", event.pageX + 5 + "px")
-          .style("top", event.pageY - 28 + "px");
+      // Handle case where X and Y attributes are the same
+      if (xAttr === yAttr) {
+        yAttr =
+          xAttr === "poverty_perc" ? "median_household_income" : "poverty_perc";
+        d3.select("#y-axis-select").property("value", yAttr);
       }
+
+      counties = topojson.feature(us, us.objects.counties).features;
+
+      // Initial setup
+      setupVisibilityControls();
+      updateColorScale();
+      drawHist();
+      drawScat();
+      drawMap();
+      drawLegend();
     })
-    .on("mouseout", function (d) {
-      tooltip_brush
-        .transition() // Renamed tooltip
-        .duration(500)
-        .style("opacity", 0);
-    });
-}
+    .catch((error) => console.error("Error loading data:", error));
 
-// Event listener for histogram dropdown (from script_brush.js)
-d3.select("#histogram-select").on("change", function () {
-  histogramAttribute_brush = this.value; // Renamed histogramAttribute
-  updateHistogram_brush(); // Renamed function
-});
-
-// Event listener for scatterplot dropdowns (from script_brush.js)
-d3.select("#x-axis-select").on("change", function () {
-  xAttribute_brush = this.value; // Renamed xAttribute
-  updateScatterplot_brush(); // Renamed function
-});
-
-d3.select("#y-axis-select").on("change", function () {
-  yAttribute_brush = this.value; // Renamed yAttribute
-  updateScatterplot_brush(); // Renamed function
-});
-
-// Event listener for choropleth dropdown (from script_brush.js)
-d3.select("#choropleth-select").on("change", function () {
-  choroplethAttribute_brush = this.value; // Renamed choroplethAttribute
-  updateColorScale_brush(); // Renamed function
-  drawChoropleth_brush(); // Renamed function
-});
-
-// Function to update the histogram (from script_brush.js)
-function updateHistogram_brush() {
-  // Renamed function
-  svgHistogram_brush.selectAll("*").remove(); // Renamed svgHistogram
-  createHistogram_brush(
-    svgHistogram_brush,
-    selectedData_brush.length > 0 ? selectedData_brush : data_brush,
-    histogramAttribute_brush,
-    histogramAttribute_brush === "poverty_perc"
-      ? "Poverty Percentage (%)" // Renamed vars
-      : histogramAttribute_brush === "percent_stroke"
-      ? "Stroke Prevalence (%)"
-      : histogramAttribute_brush === "median_household_income"
-      ? "Median Household Income ($)"
-      : "No Health Insurance (%)",
-    d3.interpolateBlues
-  ); // Renamed function and vars
-}
-
-// Function to create a histogram (from script_brush.js)
-function createHistogram_brush(svg, data, attribute, label, colorScale) {
-  // Renamed function
-  const x_hist_brush = d3
-    .scaleLinear() // Renamed x
-    .domain([0, d3.max(data, (d) => d[attribute])])
-    .range([0, width_brush]); // Renamed width
-
-  // Note: y scale seemed unused in the original, keeping similar structure
-  const y_hist_domain_brush = d3
-    .scaleLinear() // Renamed y
-    .domain([0, d3.max(data, (d) => d[attribute])])
-    .range([height_brush, 0]); // Renamed height
-
-  const bins_brush = d3
-    .histogram() // Renamed bins
-    .value((d) => d[attribute])
-    .domain(x_hist_brush.domain()) // Renamed x_hist
-    .thresholds(20);
-
-  const histogramData_brush = bins_brush(data); // Renamed histogramData, bins
-
-  const yHist_brush = d3
-    .scaleLinear() // Renamed yHist
-    .domain([0, d3.max(histogramData_brush, (d) => d.length)]) // Renamed histogramData
-    .range([height_brush, 0]); // Renamed height
-
-  // Add x-axis
-  svg
-    .append("g")
-    .attr("transform", `translate(0,${height_brush})`) // Renamed height
-    .call(d3.axisBottom(x_hist_brush)); // Renamed x_hist
-
-  // Add y-axis
-  svg.append("g").call(d3.axisLeft(yHist_brush)); // Renamed yHist
-
-  // Add x-axis label
-  svg
-    .append("text")
-    .attr("x", width_brush / 2) // Renamed width
-    .attr("y", height_brush + margin_brush.bottom - 10) // Renamed height, margin
-    .attr("class", "axis-label")
-    .text(label);
-
-  // Add y-axis label
-  svg
-    .append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("x", -height_brush / 2) // Renamed height
-    .attr("y", -margin_brush.left + 15) // Renamed margin
-    .attr("class", "axis-label")
-    .text("Number of Counties");
-
-  // Add bars
-  svg
-    .selectAll("rect")
-    .data(histogramData_brush) // Renamed histogramData
-    .enter()
-    .append("rect")
-    .attr("x", (d) => x_hist_brush(d.x0) + 1) // Renamed x_hist
-    .attr("y", (d) => yHist_brush(d.length)) // Renamed yHist
-    .attr("width", (d) => x_hist_brush(d.x1) - x_hist_brush(d.x0) - 1) // Renamed x_hist
-    .attr("height", (d) => height_brush - yHist_brush(d.length)) // Renamed height, yHist
-    .attr("fill", (d) =>
-      colorScale(d.x0 / d3.max(histogramData_brush, (d) => d.x1))
-    ) // Renamed histogramData
-    .on("mouseover", function (event, d) {
-      tooltip_brush
-        .transition() // Renamed tooltip
-        .duration(200)
-        .style("opacity", 0.9);
-      tooltip_brush
-        .html(`Count: ${d.length}`) // Renamed tooltip
-        .style("left", event.pageX + 5 + "px")
-        .style("top", event.pageY - 28 + "px");
-    })
-    .on("mouseout", function (d) {
-      tooltip_brush
-        .transition() // Renamed tooltip
-        .duration(500)
-        .style("opacity", 0);
-    });
-}
-
-// Function to update the scatterplot (from script_brush.js)
-function updateScatterplot_brush() {
-  // Renamed function
-  const x_scatter_update_brush = d3
-    .scaleLinear() // Renamed x
-    .domain([0, d3.max(data_brush, (d) => d[xAttribute_brush])]) // Renamed data, xAttribute
-    .range([0, width_brush]); // Renamed width
-
-  const y_scatter_update_brush = d3
-    .scaleLinear() // Renamed y
-    .domain([0, d3.max(data_brush, (d) => d[yAttribute_brush])]) // Renamed data, yAttribute
-    .range([height_brush, 0]); // Renamed height
-
-  // Update x-axis label
-  svgScatter_brush
-    .select(".x-axis-label") // Renamed svgScatter
-    .text(
-      xAttribute_brush === "poverty_perc"
-        ? "Poverty Percentage (%)" // Renamed xAttribute
-        : xAttribute_brush === "percent_stroke"
-        ? "Stroke Prevalence (%)"
-        : xAttribute_brush === "median_household_income"
-        ? "Median Household Income ($)"
-        : "No Health Insurance (%)"
-    );
-
-  // Update y-axis label
-  svgScatter_brush
-    .select(".y-axis-label") // Renamed svgScatter
-    .text(
-      yAttribute_brush === "poverty_perc"
-        ? "Poverty Percentage (%)" // Renamed yAttribute
-        : yAttribute_brush === "percent_stroke"
-        ? "Stroke Prevalence (%)"
-        : yAttribute_brush === "median_household_income"
-        ? "Median Household Income ($)"
-        : "No Health Insurance (%)"
-    );
-
-  // Update points
-  svgScatter_brush
-    .selectAll("circle") // Renamed svgScatter
-    .attr("cx", (d) => x_scatter_update_brush(d[xAttribute_brush])) // Renamed vars
-    .attr("cy", (d) => y_scatter_update_brush(d[yAttribute_brush])); // Renamed vars
-}
-
-// Function to create a scatterplot (from script_brush.js)
-function createScatterplot_brush(svg, data) {
-  // Renamed function
-  const x_scatter_create_brush = d3
-    .scaleLinear() // Renamed x
-    .domain([0, d3.max(data, (d) => d[xAttribute_brush])]) // Renamed xAttribute
-    .range([0, width_brush]); // Renamed width
-
-  const y_scatter_create_brush = d3
-    .scaleLinear() // Renamed y
-    .domain([0, d3.max(data, (d) => d[yAttribute_brush])]) // Renamed yAttribute
-    .range([height_brush, 0]); // Renamed height
-
-  // Add x-axis
-  svg
-    .append("g")
-    .attr("transform", `translate(0,${height_brush})`) // Renamed height
-    .call(d3.axisBottom(x_scatter_create_brush)); // Renamed x_scatter_create
-
-  // Add y-axis
-  svg.append("g").call(d3.axisLeft(y_scatter_create_brush)); // Renamed y_scatter_create
-
-  // Add x-axis label
-  svg
-    .append("text")
-    .attr("x", width_brush / 2) // Renamed width
-    .attr("y", height_brush + margin_brush.bottom - 10) // Renamed height, margin
-    .attr("class", "axis-label x-axis-label")
-    .text(
-      xAttribute_brush === "poverty_perc"
-        ? "Poverty Percentage (%)" // Renamed xAttribute
-        : xAttribute_brush === "percent_stroke"
-        ? "Stroke Prevalence (%)"
-        : xAttribute_brush === "median_household_income"
-        ? "Median Household Income ($)"
-        : "No Health Insurance (%)"
-    );
-
-  // Add y-axis label
-  svg
-    .append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("x", -height_brush / 2) // Renamed height
-    .attr("y", -margin_brush.left + 15) // Renamed margin
-    .attr("class", "axis-label y-axis-label")
-    .text(
-      yAttribute_brush === "poverty_perc"
-        ? "Poverty Percentage (%)" // Renamed yAttribute
-        : yAttribute_brush === "percent_stroke"
-        ? "Stroke Prevalence (%)"
-        : yAttribute_brush === "median_household_income"
-        ? "Median Household Income ($)"
-        : "No Health Insurance (%)"
-    );
-
-  // Add points
-  svg
-    .selectAll("circle")
-    .data(data)
-    .enter()
-    .append("circle")
-    .attr("cx", (d) => x_scatter_create_brush(d[xAttribute_brush])) // Renamed vars
-    .attr("cy", (d) => y_scatter_create_brush(d[yAttribute_brush])) // Renamed vars
-    .attr("r", 5)
-    .attr("fill", "steelblue")
-    .on("mouseover", function (event, d) {
-      tooltip_brush
-        .transition() // Renamed tooltip
-        .duration(200)
-        .style("opacity", 0.9);
-      tooltip_brush
-        .html(
-          `County: ${d.display_name}<br>${
-            xAttribute_brush === "poverty_perc"
-              ? "Poverty"
-              : xAttribute_brush === "percent_stroke"
-              ? "Stroke"
-              : xAttribute_brush === "median_household_income"
-              ? "Median Income"
-              : "No Health Insurance"
-          }: ${d[xAttribute_brush]}${
-            xAttribute_brush === "median_household_income" ? "$" : "%"
-          }<br>${
-            yAttribute_brush === "poverty_perc"
-              ? "Poverty"
-              : yAttribute_brush === "percent_stroke"
-              ? "Stroke"
-              : yAttribute_brush === "median_household_income"
-              ? "Median Income"
-              : "No Health Insurance"
-          }: ${d[yAttribute_brush]}${
-            yAttribute_brush === "median_household_income" ? "$" : "%"
-          }`
-        ) // Renamed vars
-        .style("left", event.pageX + 5 + "px")
-        .style("top", event.pageY - 28 + "px");
-    })
-    .on("mouseout", function (d) {
-      tooltip_brush
-        .transition() // Renamed tooltip
-        .duration(500)
-        .style("opacity", 0);
-    });
-
-  // Add brushing functionality (from script_brush.js)
-  const brush_brush = d3
-    .brush() // Renamed brush
-    .extent([
-      [0, 0],
-      [width_brush, height_brush],
-    ]) // Renamed width, height
-    .on("start brush end", brushed_brush); // Renamed function
-
-  svg.append("g").attr("class", "brush").call(brush_brush); // Renamed brush
-}
-
-// Function to handle brushing (from script_brush.js)
-function brushed_brush(event) {
-  // Renamed function
-  if (!event.selection) {
-    selectedData_brush = []; // Clear selection if brush is cleared
-    // Reset other charts to show all data
-    updateHistogram_brush();
-    drawChoropleth_brush();
-    // Optionally: highlight all scatterplot points again if needed
-    svgScatter_brush.selectAll("circle").classed("selected", false); // Example reset
-    return;
-  }
-
-  // Get the brushed region coordinates
-  const [[x0, y0], [x1, y1]] = event.selection;
-
-  // Define scales *inside* the brushed function to ensure they use the current attributes
-  const xScale_brush = d3
-    .scaleLinear() // Renamed xScale
-    .domain([0, d3.max(data_brush, (d) => d[xAttribute_brush])]) // Renamed data, xAttribute
-    .range([0, width_brush]); // Renamed width
-
-  const yScale_brush = d3
-    .scaleLinear() // Renamed yScale
-    .domain([0, d3.max(data_brush, (d) => d[yAttribute_brush])]) // Renamed data, yAttribute
-    .range([height_brush, 0]); // Renamed height
-
-  // Filter the data based on the brushed region
-  selectedData_brush = data_brush.filter((d) => {
-    // Renamed selectedData, data
-    const x = xScale_brush(d[xAttribute_brush]); // Renamed xScale, xAttribute
-    const y = yScale_brush(d[yAttribute_brush]); // Renamed yScale, yAttribute
-    return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  // ─── CONTROL LISTENERS ─────────────────────────────────────────────
+  d3.select("#histogram-select").on("change", function () {
+    histAttr = this.value;
+    drawHist();
   });
 
-  // Highlight selected points (optional)
-  svgScatter_brush
-    .selectAll("circle") // Renamed svgScatter
-    .classed("selected", (d) => {
-      const x = xScale_brush(d[xAttribute_brush]); // Renamed xScale, xAttribute
-      const y = yScale_brush(d[yAttribute_brush]); // Renamed yScale, yAttribute
-      return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  d3.select("#x-axis-select").on("change", function () {
+    xAttr = this.value;
+    if (xAttr === yAttr) {
+      yAttr =
+        xAttr === "poverty_perc" ? "median_household_income" : "poverty_perc";
+      d3.select("#y-axis-select").property("value", yAttr);
+    }
+    drawScat();
+    if (currentBrushSelection) {
+      handleBrushEnd({ selection: currentBrushSelection });
+    }
+  });
+
+  d3.select("#y-axis-select").on("change", function () {
+    yAttr = this.value;
+    if (xAttr === yAttr) {
+      xAttr =
+        yAttr === "poverty_perc" ? "median_household_income" : "poverty_perc";
+      d3.select("#x-axis-select").property("value", xAttr);
+    }
+    drawScat();
+    if (currentBrushSelection) {
+      handleBrushEnd({ selection: currentBrushSelection });
+    }
+  });
+
+  d3.select("#choropleth-select").on("change", function () {
+    mapAttr = this.value;
+    updateColorScale();
+    drawMap();
+    drawLegend();
+  });
+
+  // ─── UTILITIES ────────────────────────────────────────────────────
+  function getLabel(attr) {
+    switch (attr) {
+      case "poverty_perc":
+        return "Poverty Percentage (%)";
+      case "percent_stroke":
+        return "Stroke Prevalence (%)";
+      case "median_household_income":
+        return "Median Income ($)";
+      case "percent_no_health_insurance":
+        return "No Insurance (%)";
+      default:
+        return attr.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+  }
+
+  function updateColorScale() {
+    // Always base scale on full data range for consistency
+    const dataForScale = fullData;
+    const values = dataForScale
+      .map((d) => d[mapAttr])
+      .filter((v) => v !== undefined && !isNaN(v));
+
+    if (values.length === 0) {
+      colorScale = d3.scaleSequential(colorTheme.sequential).domain([0, 1]);
+      return;
+    }
+
+    const maxVal = d3.max(values);
+    const minVal = d3.min(values);
+    const domainMin = Math.max(0, minVal);
+
+    colorScale = d3
+      .scaleSequential(colorTheme.sequential)
+      .domain([domainMin, maxVal])
+      .nice();
+  }
+
+  // ─── VISIBILITY CONTROLS SETUP ─────────────────────────────────────
+  function setupVisibilityControls() {
+    const checkboxes = {
+      hist: d3.select("#show-histogram"),
+      scatter: d3.select("#show-scatterplot"),
+      choropleth: d3.select("#show-choropleth"),
+    };
+
+    // Panel IDs MUST match the HTML
+    const panels = {
+      hist: d3.select("#histogram-panel"),
+      scatter: d3.select("#scatterplot-panel"),
+      choropleth: d3.select("#choropleth-panel"),
+    };
+
+    const container = d3.select("#visualizations"); // The grid container
+
+    function updateLayout() {
+      let visibleCount = 0;
+      Object.keys(checkboxes).forEach((key) => {
+        const isChecked = checkboxes[key].property("checked");
+        panels[key].classed("hidden", !isChecked); // Add/remove hidden class
+        if (isChecked) {
+          visibleCount++;
+        }
+      });
+      // Update container class for potential CSS rules
+      container.attr("class", `show-${visibleCount}`);
+    }
+
+    // Add event listeners to checkboxes
+    Object.values(checkboxes).forEach((cb) => cb.on("change", updateLayout));
+
+    // Initial call to set visibility
+    updateLayout();
+  }
+
+  // ─── BRUSH HANDLING ─────────────────────────────────────────────────
+  function handleBrushStart() {
+    // Disable pointer events on points while brushing
+    svgScat.selectAll("circle.scatter-point").style("pointer-events", "none");
+  }
+
+  function handleBrush({ selection }) {
+    currentBrushSelection = selection;
+
+    if (selection) {
+      // Filter data based on brush selection
+      const [[x0, y0], [x1, y1]] = selection;
+      selectedData = fullData.filter((d) => {
+        const cx = scatterXScale(d[xAttr]);
+        const cy = scatterYScale(d[yAttr]);
+        return (
+          !isNaN(cx) &&
+          !isNaN(cy) &&
+          cx >= x0 &&
+          cx <= x1 &&
+          cy >= y0 &&
+          cy <= y1
+        );
+      });
+    } else {
+      // If no selection, use all data
+      selectedData = [...fullData];
+    }
+
+    // Update styling based on selection
+    applyBrushStyle();
+  }
+
+  function handleBrushEnd({ selection, sourceEvent }) {
+    // Allow clicks on overlay when not actively brushing
+    svgScat.select(".brush .overlay").style("pointer-events", "all");
+
+    if (!selection && sourceEvent && sourceEvent.type !== "end") {
+      // Clear brush when clicking outside of it
+      currentBrushSelection = null;
+      selectedData = [...fullData];
+      d3.select(this).call(brush.move, null);
+    } else {
+      currentBrushSelection = selection;
+    }
+
+    // Restore pointer events for points if brush is cleared
+    if (!currentBrushSelection) {
+      svgScat.selectAll("circle.scatter-point").style("pointer-events", "all");
+    }
+
+    // Update all linked visualizations with smooth transitions
+    applyBrushStyle();
+    drawHist();
+    drawMap();
+    drawLegend();
+  }
+
+  function applyBrushStyle() {
+    const isBrushed = currentBrushSelection !== null;
+    const selectedFips = isBrushed
+      ? new Set(selectedData.map((d) => d.cnty_fips))
+      : new Set();
+
+    // Apply appropriate classes based on selection with transition
+    svgScat
+      .selectAll("circle.scatter-point")
+      .transition()
+      .duration(300)
+      .attr("fill", (d) =>
+        isBrushed && selectedFips.has(d.cnty_fips)
+          ? colorTheme.secondary
+          : colorTheme.primary
+      )
+      .attr("r", (d) => (isBrushed && selectedFips.has(d.cnty_fips) ? 5 : 3))
+      .style("opacity", (d) =>
+        isBrushed && !selectedFips.has(d.cnty_fips) ? 0.2 : 0.8
+      );
+  }
+
+  // ─── DRAW HISTOGRAM ────────────────────────────────────────────────
+  function drawHist() {
+    // Use selected data if brush is active, otherwise use full data
+    const dataset =
+      selectedData.length > 0 && currentBrushSelection
+        ? selectedData
+        : fullData;
+
+    svgHist.selectAll("*").remove();
+
+    // Filter out undefined/NaN values
+    const values = dataset
+      .map((d) => d[histAttr])
+      .filter((v) => v !== undefined && !isNaN(v));
+
+    if (values.length === 0) {
+      // Display message if no data
+      svgHist
+        .append("text")
+        .text("No data in selection.")
+        .attr("x", histW / 2)
+        .attr("y", histH / 2)
+        .attr("text-anchor", "middle")
+        .style("font-size", "10px");
+      return;
+    }
+
+    // Set up scales using full data domain for consistency
+    const xDomain = d3.extent(fullData, (d) => d[histAttr]);
+    const x = d3.scaleLinear().domain(xDomain).nice().range([0, histW]);
+
+    // Create histogram bins
+    const bins = d3
+      .histogram()
+      .value((d) => d[histAttr])
+      .domain(x.domain())
+      .thresholds(15)(
+      dataset.filter((d) => d[histAttr] !== undefined && !isNaN(d[histAttr]))
+    );
+
+    // Set up y scale
+    const yMax = d3.max(bins, (b) => b.length);
+    const yDomain = [0, yMax > 0 ? yMax : 1];
+    const y = d3.scaleLinear().domain(yDomain).nice().range([histH, 0]);
+
+    // Draw axes
+    svgHist
+      .append("g")
+      .attr("transform", `translate(0,${histH})`)
+      .call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
+    svgHist.append("g").call(d3.axisLeft(y).ticks(5));
+
+    // Add axis labels
+    svgHist
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("x", histW / 2)
+      .attr("y", histH + margin.bottom - 15)
+      .attr("text-anchor", "middle")
+      .text(getLabel(histAttr));
+    svgHist
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -histH / 2)
+      .attr("y", -margin.left + 15)
+      .attr("text-anchor", "middle")
+      .text("Count");
+
+    // Draw histogram bars with transition
+    const bars = svgHist
+      .selectAll("rect")
+      .data(bins)
+      .enter()
+      .append("rect")
+      .attr("x", (d) => x(d.x0) + 1)
+      .attr("y", histH) // Start from bottom for transition
+      .attr("width", (d) => Math.max(0, x(d.x1) - x(d.x0) - 1))
+      .attr("height", 0) // Start with height 0 for transition
+      .attr("fill", colorTheme.primary)
+      .on("mouseover", (e, b) => {
+        tooltip.transition().duration(200).style("opacity", 0.9);
+        tooltip
+          .html(
+            `Range: ${b.x0.toFixed(1)}-${b.x1.toFixed(1)}<br>Count: ${b.length}`
+          )
+          .style("left", e.pageX + 5 + "px")
+          .style("top", e.pageY - 28 + "px");
+      })
+      .on("mouseout", () => {
+        tooltip.transition().duration(500).style("opacity", 0);
+      });
+
+    // Apply transition for bar animation
+    bars
+      .transition()
+      .duration(500)
+      .attr("y", (d) => y(d.length))
+      .attr("height", (d) => Math.max(0, histH - y(d.length)));
+  }
+
+  // ─── DRAW SCATTERPLOT & BRUSH ─────────────────────────────────────
+  function drawScat() {
+    const dataset = fullData;
+    svgScat.selectAll("*").remove();
+
+    // Filter out undefined/NaN values
+    const xValues = dataset
+      .map((d) => d[xAttr])
+      .filter((v) => v !== undefined && !isNaN(v));
+    const yValues = dataset
+      .map((d) => d[yAttr])
+      .filter((v) => v !== undefined && !isNaN(v));
+
+    if (xValues.length === 0 || yValues.length === 0) {
+      // Display message if no data
+      svgScat
+        .append("text")
+        .text("No data.")
+        .attr("x", scatW / 2)
+        .attr("y", scatH / 2)
+        .attr("text-anchor", "middle")
+        .style("font-size", "10px");
+      return;
+    }
+
+    // Set up scales
+    scatterXScale.domain(d3.extent(xValues)).nice().range([0, scatW]);
+    scatterYScale.domain(d3.extent(yValues)).nice().range([scatH, 0]);
+
+    // Draw axes
+    svgScat
+      .append("g")
+      .attr("transform", `translate(0,${scatH})`)
+      .call(d3.axisBottom(scatterXScale).ticks(5));
+    svgScat.append("g").call(d3.axisLeft(scatterYScale).ticks(5));
+
+    // Add axis labels
+    svgScat
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("x", scatW / 2)
+      .attr("y", scatH + margin.bottom - 15)
+      .attr("text-anchor", "middle")
+      .text(getLabel(xAttr));
+    svgScat
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -scatH / 2)
+      .attr("y", -margin.left + 15)
+      .attr("text-anchor", "middle")
+      .text(getLabel(yAttr));
+
+    // Draw scatterplot points with transition
+    svgScat
+      .selectAll(".scatter-point")
+      .data(dataset)
+      .enter()
+      .append("circle")
+      .attr("class", "scatter-point")
+      .attr("cx", (d) => scatterXScale(d[xAttr]))
+      .attr("cy", (d) => scatterYScale(d[yAttr]))
+      .attr("r", 0) // Start with radius 0 for transition
+      .attr("fill", colorTheme.primary)
+      .style("opacity", 0.8)
+      .on("mouseover", (e, d) => {
+        // Highlight point on hover
+        d3.select(e.target)
+          .transition()
+          .duration(150)
+          .attr("r", 7)
+          .attr("fill", colorTheme.highlight);
+
+        tooltip.transition().duration(200).style("opacity", 0.9);
+        tooltip
+          .html(
+            `<strong>${d.display_name.replace(/"/g, "")}</strong><br>` +
+              `${getLabel(xAttr)}: ${d[xAttr].toLocaleString()}<br>` +
+              `${getLabel(yAttr)}: ${d[yAttr].toLocaleString()}`
+          )
+          .style("left", e.pageX + 5 + "px")
+          .style("top", e.pageY - 28 + "px");
+      })
+      .on("mouseout", (e) => {
+        // Restore point style on mouseout
+        d3.select(e.target)
+          .transition()
+          .duration(150)
+          .attr("r", 3)
+          .attr("fill", colorTheme.primary);
+
+        tooltip.transition().duration(500).style("opacity", 0);
+      })
+      .transition() // Apply entrance transition
+      .duration(500)
+      .delay((d, i) => i % 10) // Stagger effect
+      .attr("r", 3);
+
+    // Setup brush
+    brush = d3
+      .brush()
+      .extent([
+        [0, 0],
+        [scatW, scatH],
+      ])
+      .on("start", handleBrushStart)
+      .on("brush", handleBrush)
+      .on("end", handleBrushEnd);
+
+    // Add brush to scatterplot
+    const brushLayer = svgScat.append("g").attr("class", "brush").call(brush);
+
+    // Push brush below points for better interaction
+    brushLayer.lower();
+  }
+
+  // ─── DRAW CHOROPLETH MAP ───────────────────────────────────────────
+  function drawMap() {
+    svgMap.selectAll("*").remove();
+
+    // Set up projection
+    const projection = d3
+      .geoAlbersUsa()
+      .translate([mapW / 2, mapH / 2])
+      .scale(mapW);
+    const path = d3.geoPath().projection(projection);
+
+    // Draw counties with transition
+    svgMap
+      .selectAll("path")
+      .data(counties)
+      .enter()
+      .append("path")
+      .attr("d", path)
+      .attr("fill", "#eee") // Initial color for transition
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 0.2)
+      .on("mouseover", (e, d) => {
+        // Find county data for tooltip
+        const county = fullData.find((c) => c.cnty_fips === d.id);
+        if (county) {
+          // Highlight county on hover
+          d3.select(e.target)
+            .transition()
+            .duration(150)
+            .attr("stroke", "#000")
+            .attr("stroke-width", 1);
+
+          tooltip.transition().duration(200).style("opacity", 0.9);
+          tooltip
+            .html(
+              `<strong>${county.display_name.replace(/"/g, "")}</strong><br>` +
+                `${getLabel(mapAttr)}: ${
+                  county[mapAttr] ? county[mapAttr].toLocaleString() : "No data"
+                }`
+            )
+            .style("left", e.pageX + 5 + "px")
+            .style("top", e.pageY - 28 + "px");
+        }
+      })
+      .on("mouseout", (e) => {
+        // Restore county style on mouseout
+        d3.select(e.target)
+          .transition()
+          .duration(150)
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 0.2);
+
+        tooltip.transition().duration(500).style("opacity", 0);
+      })
+      .transition() // Apply color transition
+      .duration(500)
+      .attr("fill", (d) => {
+        // Find county data by FIPS code
+        const county =
+          selectedData.length > 0 && currentBrushSelection
+            ? selectedData.find((c) => c.cnty_fips === d.id)
+            : fullData.find((c) => c.cnty_fips === d.id);
+
+        // Color by attribute or gray if no data available
+        return county ? colorScale(county[mapAttr]) : "#ccc";
+      });
+  }
+
+  // ─── DRAW COLOR LEGEND ─────────────────────────────────────────────
+  function drawLegend() {
+    svgLegend.selectAll("*").remove();
+
+    // Center the legend better
+    const svgWidth = 300;
+    const legendWidth = 260;
+    const legendHeight = 18;
+    const legendX = (svgWidth - legendWidth) / 2; // Center horizontally
+    const legendY = 5; // Move up slightly
+
+    // Create gradient for legend
+    const defs = svgLegend.append("defs");
+    const gradient = defs
+      .append("linearGradient")
+      .attr("id", "legend-gradient")
+      .attr("x1", "0%")
+      .attr("y1", "0%")
+      .attr("x2", "100%")
+      .attr("y2", "0%");
+
+    // Create color stops
+    const stops = d3.range(0, 1.1, 0.1);
+    stops.forEach((stop) => {
+      gradient
+        .append("stop")
+        .attr("offset", `${stop * 100}%`)
+        .attr("stop-color", colorScale.interpolator()(stop));
     });
 
-  // Update the histogram and choropleth map with the selected data
-  updateHistogram_brush(); // Renamed function
-  drawChoropleth_brush(); // Renamed function - Renamed from updateChoropleth to drawChoropleth
-}
+    // Draw gradient rectangle
+    svgLegend
+      .append("rect")
+      .attr("x", legendX)
+      .attr("y", legendY)
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .style("fill", "url(#legend-gradient)")
+      .style("stroke", "#ccc")
+      .style("stroke-width", "0.5px");
 
-// ======================================================
-// Content from script.js (Adapted to avoid conflicts)
-// ======================================================
+    // Draw legend axis
+    const legendScale = d3
+      .scaleLinear()
+      .domain(colorScale.domain())
+      .range([0, legendWidth]);
 
-// Note: Margins, dimensions, SVG creation, and tooltip are already handled by script_brush.js part.
-//       We will reuse or adapt functions and variables where possible.
-//       If script.js had unique functionalities, they would be integrated here.
-//       Since script.js appears to be a subset of script_brush.js (without brushing),
-//       most of its code is already represented above. We'll add the helper function.
+    const legendAxis = d3
+      .axisBottom(legendScale)
+      .ticks(5)
+      .tickFormat((d) => d.toLocaleString());
 
-console.log("Checking script.js specific elements...");
+    svgLegend
+      .append("g")
+      .attr("transform", `translate(${legendX}, ${legendY + legendHeight})`)
+      .call(legendAxis)
+      .selectAll("text")
+      .style("font-size", "10px")
+      .style("font-weight", "500");
 
-// Global variables from script.js (Check if already defined or need merging)
-// let data; // Already defined as data_brush
-// let counties; // Already defined as counties_brush
-// let colorScale; // Already defined as colorScale_brush
-// let xAttribute = document.getElementById("x-axis-select").value; // Already defined as xAttribute_brush
-// let yAttribute = document.getElementById("y-axis-select").value; // Already defined as yAttribute_brush
-// let choroplethAttribute = "poverty_perc"; // Already defined as choroplethAttribute_brush
-// let histogramAttribute = "poverty_perc"; // Already defined as histogramAttribute_brush
-
-// Data loading from script.js (Handled by script_brush.js)
-// d3.csv("data.csv").then(csvData => { ... }); // Already done
-
-// SVG Creation function from script.js (Similar function implicitly used in script_brush.js)
-/*
-function createSVG(selector) { // This function was in script.js
-    return d3.select(selector)
-        .append("svg")
-        .attr("width", width + margin.left + margin.right) // These would need renaming if used
-        .attr("height", height + margin.top + margin.bottom) // These would need renaming if used
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`); // These would need renaming if used
-}
-*/
-
-// Color scale update function (Handled by script_brush.js version: updateColorScale_brush)
-// function updateColorScale() { ... }
-
-// Choropleth drawing function (Handled by script_brush.js version: drawChoropleth_brush)
-// function drawChoropleth() { ... }
-
-// Event listeners (Handled by script_brush.js versions)
-// d3.select("#histogram-select").on("change", ...);
-// d3.select("#x-axis-select").on("change", ...);
-// d3.select("#y-axis-select").on("change", ...);
-// d3.select("#choropleth-select").on("change", ...);
-
-// Histogram update function (Handled by script_brush.js version: updateHistogram_brush)
-// function updateHistogram() { ... }
-
-// Histogram creation function (Handled by script_brush.js version: createHistogram_brush)
-// function createHistogram(svg, data, attribute, label, colorScale) { ... }
-
-// Scatterplot update function (Handled by script_brush.js version: updateScatterplot_brush)
-// function updateScatterplot() { ... }
-
-// Scatterplot creation function (Handled by script_brush.js version: createScatterplot_brush)
-// function createScatterplot(svg, data) { ... }
-
-// Helper function to get attribute label (from script.js - Keep this as it might be useful)
-function getAttributeLabel(attribute) {
-  switch (attribute) {
-    case "poverty_perc":
-      return "Poverty Percentage (%)";
-    case "percent_stroke":
-      return "Stroke Prevalence (%)";
-    case "median_household_income":
-      return "Median Household Income ($)";
-    case "percent_no_health_insurance":
-      return "No Health Insurance (%)";
-    default:
-      return attribute;
+    // Add legend title
+    svgLegend
+      .append("text")
+      .attr("class", "legend-title")
+      .attr("x", svgWidth / 2)
+      .attr("y", legendY + legendHeight + 25)
+      .attr("text-anchor", "middle")
+      .style("font-size", "11px")
+      .style("font-weight", "bold")
+      .text(getLabel(mapAttr));
   }
-}
-
-// Add final check or initialization if needed
-console.log("Combined script loaded.");
-
-// Example of potentially using the helper function if tooltips/labels need it:
-// Instead of repeating the switch/case logic, the brush version could potentially call getAttributeLabel().
-// e.g., in updateScatterplot_brush:
-// svgScatter_brush.select(".x-axis-label").text(getAttributeLabel(xAttribute_brush));
-// svgScatter_brush.select(".y-axis-label").text(getAttributeLabel(yAttribute_brush));
-// (This change is not made above, just showing potential usage)
+});
