@@ -14,6 +14,48 @@ The motivation behind this project is to create a tool that allows users to visu
 
 ---
 
+## Version 2 Updates (May 2025)
+
+Version 2 significantly enhances the user interface, interactivity, and analytical capabilities of the visualization tool. The core visualizations remain, but the surrounding dashboard and controls have been substantially upgraded based on usability considerations and the goal of providing more direct insights.
+
+### Summary of Key Changes in V2
+
+![OnePageApp](img/OnePageApp.png)
+![Content](img/Content1.png)
+![Content](img/Content2.png)
+
+- **Consolidated Code:** Merged the separate JavaScript files (`script.js`, `script_brush.js`) into a single `script.js` for easier maintenance.
+- **Improved UI Layout:** Implemented a CSS grid layout (`style.css`) to display all visualization panels and content sections on a single page without requiring scrolling, providing a more integrated dashboard experience.
+  - _Rationale:_ To improve overview and comparison between charts, preventing users from losing context while scrolling.
+- **Graph Visibility Controls:** Added checkboxes above the visualizations allowing users to toggle the visibility of the Histogram, Scatterplot, and Choropleth Map individually.
+  - _Rationale:_ To allow users to focus on specific charts of interest or customize their view based on analytical needs, reducing clutter.
+- **Integrated Content Sections:** Added dedicated sections within the main page for:
+  - "About the Project"
+  - "How to Use This Dashboard" (Detailed instructions)
+  - "Insights" (Observations and analysis derived from the data)
+  - _Rationale:_ To provide necessary context, guidance, and analytical summaries directly within the tool, making it self-contained.
+- **Dynamic Stats Panel:** Introduced a statistics panel below the charts that displays:
+  - Total number of counties currently being visualized.
+  - Number of counties selected via scatterplot brushing.
+  - Pearson correlation coefficient between the variables currently selected for the scatterplot's X and Y axes.
+  - _Rationale:_ To offer immediate quantitative summaries that complement the visual exploration and highlight potential relationships numerically.
+- **Unified Color Theme:** Adjusted the Choropleth map's color scheme to align better with the themes used in the other visualizations.
+  - _Rationale:_ To create a more cohesive and aesthetically consistent visual experience across the dashboard.
+
+### How to Use New V2 Features
+
+- **Toggle Graph Visibility:** Locate the checkboxes labeled "Show Histogram," "Show Scatterplot," and "Show Map" above the visualization area. Uncheck any box to hide the corresponding chart panel; check it again to bring it back.
+- **Interpret the Stats Panel:** Observe the "Stats Panel" located below the visualizations:
+  - `Total Counties Displayed:` Shows how many counties match your current filter (all counties by default, or the brushed selection).
+  - `Counties Selected:` Indicates the number of data points within the active brush on the scatterplot (0 if no brush is active).
+  - `Correlation (Scatterplot X/Y):` Displays the calculated correlation between the two variables currently plotted on the scatterplot. This value updates automatically when you change the scatterplot's axes via the dropdowns. Use this to quickly assess the strength and direction (positive or negative) of a linear relationship.
+- **Utilize Content Sections:** Read the "How to Use" section directly on the page for detailed guidance. Refer to the "Insights" section for potential patterns or takeaways observed in the data.
+- **Enjoy the Layout:** Notice that all elements (controls, charts, text) are generally visible without needing to scroll up and down, making it easier to see how interactions in one area affect others.
+
+These updates aim to transform the tool from a set of individual charts into a more cohesive and informative interactive dashboard.
+
+---
+
 ## 📊 Data
 
 The data used in this project comes from the **US Heart and Stroke Atlas**, which provides county-level data on various health and socioeconomic indicators. The dataset includes the following attributes:
@@ -27,7 +69,7 @@ The data used in this project comes from the **US Heart and Stroke Atlas**, whic
 
 ---
 
-## 🎨 Visualization Components
+## 🎨 Visualization Components -- Version 1
 
 The application consists of three main visualization components:
 
@@ -161,45 +203,3 @@ The video walks through the application, demonstrating how to interact with the 
 - **Libraries**: [D3.js](https://d3js.org/), [TopoJSON](https://github.com/topojson/topojson)
 - **Peers**: Saad Mohammed, Hethu Sri Nadipudi, Mosaad Mohammed for their feedback and suggestions.
 - **AI Tools**: DeepSeek for debugging and documentation refinement.
-
----
-
-## Version 2 Updates (May 2025)
-
-Version 2 significantly enhances the user interface, interactivity, and analytical capabilities of the visualization tool. The core visualizations remain, but the surrounding dashboard and controls have been substantially upgraded based on usability considerations and the goal of providing more direct insights.
-
-### Summary of Key Changes in V2
-
-![OnePageApp](img/OnePageApp.png)
-![Content](img/Content1.png)
-![Content](img/Content2.png)
-
-- **Consolidated Code:** Merged the separate JavaScript files (`script.js`, `script_brush.js`) into a single `script.js` for easier maintenance.
-- **Improved UI Layout:** Implemented a CSS grid layout (`style.css`) to display all visualization panels and content sections on a single page without requiring scrolling, providing a more integrated dashboard experience.
-  - _Rationale:_ To improve overview and comparison between charts, preventing users from losing context while scrolling.
-- **Graph Visibility Controls:** Added checkboxes above the visualizations allowing users to toggle the visibility of the Histogram, Scatterplot, and Choropleth Map individually.
-  - _Rationale:_ To allow users to focus on specific charts of interest or customize their view based on analytical needs, reducing clutter.
-- **Integrated Content Sections:** Added dedicated sections within the main page for:
-  - "About the Project"
-  - "How to Use This Dashboard" (Detailed instructions)
-  - "Insights" (Observations and analysis derived from the data)
-  - _Rationale:_ To provide necessary context, guidance, and analytical summaries directly within the tool, making it self-contained.
-- **Dynamic Stats Panel:** Introduced a statistics panel below the charts that displays:
-  - Total number of counties currently being visualized.
-  - Number of counties selected via scatterplot brushing.
-  - Pearson correlation coefficient between the variables currently selected for the scatterplot's X and Y axes.
-  - _Rationale:_ To offer immediate quantitative summaries that complement the visual exploration and highlight potential relationships numerically.
-- **Unified Color Theme:** Adjusted the Choropleth map's color scheme to align better with the themes used in the other visualizations.
-  - _Rationale:_ To create a more cohesive and aesthetically consistent visual experience across the dashboard.
-
-### How to Use New V2 Features
-
-- **Toggle Graph Visibility:** Locate the checkboxes labeled "Show Histogram," "Show Scatterplot," and "Show Map" above the visualization area. Uncheck any box to hide the corresponding chart panel; check it again to bring it back.
-- **Interpret the Stats Panel:** Observe the "Stats Panel" located below the visualizations:
-  - `Total Counties Displayed:` Shows how many counties match your current filter (all counties by default, or the brushed selection).
-  - `Counties Selected:` Indicates the number of data points within the active brush on the scatterplot (0 if no brush is active).
-  - `Correlation (Scatterplot X/Y):` Displays the calculated correlation between the two variables currently plotted on the scatterplot. This value updates automatically when you change the scatterplot's axes via the dropdowns. Use this to quickly assess the strength and direction (positive or negative) of a linear relationship.
-- **Utilize Content Sections:** Read the "How to Use" section directly on the page for detailed guidance. Refer to the "Insights" section for potential patterns or takeaways observed in the data.
-- **Enjoy the Layout:** Notice that all elements (controls, charts, text) are generally visible without needing to scroll up and down, making it easier to see how interactions in one area affect others.
-
-These updates aim to transform the tool from a set of individual charts into a more cohesive and informative interactive dashboard.
