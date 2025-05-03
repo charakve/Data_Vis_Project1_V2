@@ -170,9 +170,9 @@ Version 2 significantly enhances the user interface, interactivity, and analytic
 
 ### Summary of Key Changes in V2
 
-! [OnePageApp](img/OnePageApp.png)
-! [Content](img/Content1.png)
-! [Content](img/Content2.png)
+![OnePageApp](img/OnePageApp.png)
+![Content](img/Content1.png)
+![Content](img/Content2.png)
 
 - **Consolidated Code:** Merged the separate JavaScript files (`script.js`, `script_brush.js`) into a single `script.js` for easier maintenance.
 - **Improved UI Layout:** Implemented a CSS grid layout (`style.css`) to display all visualization panels and content sections on a single page without requiring scrolling, providing a more integrated dashboard experience.
