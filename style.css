@@ -1,0 +1,70 @@
+body {
+  font-family: Arial, sans-serif;
+    margin: 20px;
+  }
+  
+  h1 {
+    text-align: center;
+    color: #333;
+  }
+  
+  #scatterplot-controls, #choropleth-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px; /* Adds spacing between elements */
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  width: 90%;
+}
+
+  
+  select {
+    margin-left: 10px;
+    padding: 5px;
+    font-size: 14px;
+  }
+  
+  
+  #visualizations {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+  }
+  
+  #histogram-poverty, #histogram-stroke, #scatterplot, #choropleth {
+    margin: 20px;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+  }
+
+  #how-to-use, #intro {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    
+  }
+  
+  .tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px;
+    border-radius: 5px;
+    pointer-events: none;
+    font-size: 12px;
+  }
+  
+  .axis-label {
+    font-size: 12px;
+    fill: #333;
+  }
+  
+  .brush .selection {
+    fill: steelblue;
+    opacity: 0.3;
+  }

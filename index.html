@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US County Data Visualization</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+</head>
+
+<body>
+    <h1>US County Data Visualization</h1>
+    
+    <!-- Introduction Section -->
+    <div id="intro">
+        <section>
+            <p>Exploring the relationship between socioeconomic and health indicators across US counties.</p>
+            <p><strong>By:</strong> Viraj Kishore Charakanam</p>
+            <p><strong>Data Sources:</strong> 
+                <a href="https://www.cdc.gov/dhdsp/maps/atlas/index.htm" target="_blank">US Heart and Stroke Atlas</a>
+            </p>
+            <p><strong>Libraries Used:</strong> 
+                <a href="https://d3js.org/" target="_blank">D3.js</a>, 
+                <a href="https://github.com/topojson/topojson" target="_blank">TopoJSON</a>
+            </p>
+        </section>
+    </div>
+    
+    <!-- Visualization Section -->
+    <div id="visualizations">
+        
+        <!-- Histogram Section -->
+        <div id="histogram">
+            <h2>Distribution of Selected Attribute</h2>
+            <div id="histogram-controls">
+                <label for="histogram-select">Attribute:</label>
+                <select id="histogram-select">
+                    <option value="poverty_perc">Poverty Percentage</option>
+                    <option value="percent_stroke">Stroke Prevalence</option>
+                    <option value="median_household_income">Median Household Income</option>
+                    <option value="percent_no_health_insurance">No Health Insurance (%)</option>
+                </select>
+            </div>
+            <p>This histogram shows the distribution of the selected attribute across US counties.</p>
+        </div>
+
+        <!-- Scatterplot Controls -->
+        <div id="scatterplot-controls">
+            <b>Scatter Plot</b>
+            <label for="x-axis-select">X-Axis:</label>
+            <select id="x-axis-select">
+                <option value="poverty_perc">Poverty Percentage</option>
+                <option value="percent_stroke">Stroke Prevalence</option>
+                <option value="median_household_income">Median Household Income</option>
+                <option value="percent_no_health_insurance">No Health Insurance (%)</option>
+            </select>
+
+            <label for="y-axis-select">Y-Axis:</label>
+            <select id="y-axis-select">
+                <option value="poverty_perc">Poverty Percentage</option>
+                <option value="percent_stroke">Stroke Prevalence</option>
+                <option value="median_household_income">Median Household Income</option>
+                <option value="percent_no_health_insurance">No Health Insurance (%)</option>
+            </select>
+        </div>
+
+        <!-- Scatterplot Section -->
+        <div id="scatterplot">
+            <h2>Correlation Between Selected Attributes</h2>
+            <p>This scatterplot explores the relationship between the selected X and Y attributes.</p>
+        </div>
+
+        <!-- Choropleth Controls -->
+        <div id="choropleth-controls">
+            <label for="choropleth-select"><b>Choropleth</b> Attribute:</label>
+            <select id="choropleth-select">
+                <option value="poverty_perc">Poverty Percentage</option>
+                <option value="percent_stroke">Stroke Prevalence</option>
+                <option value="median_household_income">Median Household Income</option>
+                <option value="percent_no_health_insurance">No Health Insurance (%)</option>
+            </select>
+        </div>
+
+        <!-- Choropleth Map Section -->
+        <div id="choropleth">
+            <h2>Spatial Distribution</h2>
+            <p>This map shows the spatial distribution of the selected attribute across US counties.</p>
+        </div>
+    </div>
+
+    <!-- How to Use Section -->
+    <section id="how-to-use">
+        <h2>How to Use This Visualization</h2>
+        <div>
+            <p>This dashboard allows you to explore different relationships between socioeconomic and health indicators across US counties.</p>
+            <ul>
+                <li>📊 <strong>Histogram:</strong> Select an attribute to see its distribution.</li>
+                <li>🔍 <strong>Scatterplot:</strong> Choose X and Y variables to explore relationships.</li>
+                <li>🗺️ <strong>Choropleth Map:</strong> Select an attribute to view its geographic distribution.</li>
+            </ul>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>
